@@ -7,7 +7,7 @@ import datetime
 import urllib.request
 import shutil
 
-WIKI_DIR = "wiki"
+WIKI_DIR = os.path.expanduser("~/wiki")
 LOBBY_FILE = os.path.join(WIKI_DIR, "Lobby.md")
 LOG_FILE = os.path.join(WIKI_DIR, "log.md")
 
@@ -61,8 +61,9 @@ def _note_path(title):
 
 
 def _all_md_files():
-    """Get all .md files recursively."""
-    return glob.glob(os.path.join(WIKI_DIR, "**", "*.md"), recursive=True)
+    """Get all .md files recursively, excluding the assets folder."""
+    all_files = glob.glob(os.path.join(WIKI_DIR, "**", "*.md"), recursive=True)
+    return [f for f in all_files if "assets" not in os.path.relpath(f, WIKI_DIR).split(os.sep)]
 
 
 def _find_links(content):
@@ -145,6 +146,62 @@ def link_notes(source, target):
             _append_file(source_file, f"\n- [[{target}]]")
 
     log_action("link", f"{source} to {target}")
+
+
+def add_asset(source_path, subfolder=None):
+    if not os.path.exists(source_path):
+        print(f"Error: Source file or directory '{source_path}' does not exist.")
+        return
+
+    # Determine target directory
+    target_dir = os.path.join(WIKI_DIR, "assets")
+    if subfolder:
+        target_dir = os.path.join(target_dir, subfolder)
+    os.makedirs(target_dir, exist_ok=True)
+
+    # Handle collisions
+    filename = os.path.basename(source_path.rstrip("/\\"))
+    target_path = os.path.join(target_dir, filename)
+
+    if os.path.isdir(source_path):
+        name = filename
+        counter = 1
+        while os.path.exists(target_path):
+            filename = f"{name}_{counter}"
+            target_path = os.path.join(target_dir, filename)
+            counter += 1
+        try:
+            shutil.copytree(source_path, target_path)
+            # Use relative path from wiki root for the link
+            rel_path = os.path.relpath(target_path, WIKI_DIR)
+            link = f"`{rel_path}/`"
+        except Exception as e:
+            print(f"Error copying directory: {e}")
+            return
+    else:
+        name, ext = os.path.splitext(filename)
+        counter = 1
+        while os.path.exists(target_path):
+            filename = f"{name}_{counter}{ext}"
+            target_path = os.path.join(target_dir, filename)
+            counter += 1
+
+        # Copy file
+        try:
+            shutil.copy2(source_path, target_path)
+        except Exception as e:
+            print(f"Error copying file: {e}")
+            return
+
+        # Determine Obsidian embed syntax
+        embed_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".mp4", ".webm", ".mp3", ".wav", ".ogg"}
+        if ext.lower() in embed_exts:
+            link = f"![[{filename}]]"
+        else:
+            link = f"[[{filename}]]"
+
+    log_action("add-asset", f"{filename} to assets/{subfolder or ''}")
+    print(f"Asset added successfully. Use this link in your notes:\n{link}")
 
 
 def lint_wiki():
@@ -352,6 +409,8 @@ def print_tree():
     print("Lobby (Vault Root)")
     # Show filesystem structure
     for entry in sorted(os.listdir(WIKI_DIR)):
+        if entry == "assets":
+            continue
         path = os.path.join(WIKI_DIR, entry)
         if os.path.isdir(path):
             print(f"|-- {entry}/")
@@ -503,6 +562,10 @@ def main():
     link_parser.add_argument("source")
     link_parser.add_argument("target")
 
+    asset_parser = subparsers.add_parser("add-asset")
+    asset_parser.add_argument("source")
+    asset_parser.add_argument("--folder", help="Optional subfolder inside assets/")
+
     subparsers.add_parser("lint")
 
     analyze_parser = subparsers.add_parser("analyze")
@@ -552,6 +615,8 @@ def main():
         remove_note(args.title)
     elif args.command == "link":
         link_notes(args.source, args.target)
+    elif args.command == "add-asset":
+        add_asset(args.source, args.folder)
     elif args.command == "lint":
         lint_wiki()
     elif args.command == "analyze":

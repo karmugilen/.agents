@@ -23,6 +23,7 @@ python .agents/skills/mind-palace-wiki/scripts/wiki_manager.py tree
 | `add` | `add [Title] --room [Room] [--template T]` | Add note with optional template. Deduplicates links. |
 | `remove` | `remove [Title]` | Delete note and clean up all backlinks (full line removal). |
 | `link` | `link [Source] [Target]` | Weave a manual wikilink. Deduplicates. |
+| `add-asset` | `add-asset [Source] [--folder F]` | Copy file or directory recursively to assets/ directory and return link. |
 | `lint` | `lint` | Find broken links and orphaned notes (skips Lobby/log). |
 | `analyze` | `analyze [--bridges]` | Hub analysis or cross-room bridge detection. |
 | `ingest-url`| `ingest-url [URL] --title [T] --room [R]` | Web-to-Markdown extraction. Deduplicates room links. |
@@ -53,6 +54,7 @@ python .agents/skills/mind-palace-wiki/scripts/wiki_manager.py tree
 - Write multiline (pipe): `echo "line1\nline2" | python wiki_manager.py write "Title" --stdin --append`
 - Write multiline (file): `write "Title" --file data.txt --append`
 - Ingest Web Data: `ingest-url [URL] --title "Name" --room "Category"`
+- Add Asset: `add-asset image.png --folder diagrams` (Returns `![[image.png]]`)
 
 > **Table Format**: When writing data tables to the vault, use Obsidian-compatible markdown pipe tables (`| col | col |` with `| --- | --- |` separator) instead of code blocks. This ensures tables render properly in Obsidian's reading view.
 
